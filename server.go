@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"triangula-api-server/logic"
 )
 
 type Image struct {
@@ -36,8 +38,9 @@ func (h *imageHandlers) loadStore() {
 			panic(err.Error())
 		}
 
-		// skip .gitkeep
-		if file.Name() == ".gitkeep" || file.IsDir() {
+		// skip directories, .* and .json files
+		fileNameParts := strings.Split(file.Name(), ".")
+		if fileNameParts[0] == "" || file.IsDir() || fileNameParts[1] == "json" {
 			continue
 		}
 
@@ -45,7 +48,6 @@ func (h *imageHandlers) loadStore() {
 		hash := sha256.New()
 
 		// get hash from filename (svg) or calculation
-		fileNameParts := strings.Split(file.Name(), ".")
 		fileHash := fileNameParts[0]
 		fileIsProcessed := true
 		if fileNameParts[1] != "svg" {
@@ -149,6 +151,51 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	fmt.Print(img)
 }
 
+func (h *imageHandlers) startProcessing() {
+
+	i := 0
+	for _, image := range h.store {
+		if !image.Processed {
+			processFile(&image)
+		}
+		i++
+	}
+
+}
+
+func processFile(storeImage *Image) {
+
+	// calculation arguments
+	image := "images/" + storeImage.Name
+	fileNameParts := strings.Split(storeImage.Name, ".")
+	output := "images/" + fileNameParts[0]
+	points := 300
+	shape := "triangles"
+	mutations := 2
+	variation := 0.3
+	population := 400
+	cache := 22
+	block := 5
+	cutoff := 1
+	reps := 500
+	threads := 0
+
+	// generate json
+	logic.RunAlgorithm(image, output, uint(points), shape,
+		uint(mutations), float64(variation), uint(population), uint(cache),
+		uint(cutoff), uint(block), uint(reps), uint(threads))
+
+	// generate svg
+	input := "images/" + fileNameParts[0] + ".json"
+	logic.RenderSVG(input, output, image, shape)
+
+	// delete json + image
+	os.Remove(input)
+	os.Remove(image)
+
+	storeImage.Processed = true
+}
+
 func newImageHandlers() *imageHandlers {
 	return &imageHandlers{
 		store: map[string]Image{},
@@ -158,6 +205,7 @@ func newImageHandlers() *imageHandlers {
 func main() {
 	imageHandlers := newImageHandlers()
 	imageHandlers.loadStore()
+	imageHandlers.startProcessing()
 	http.HandleFunc("/", imageHandlers.get)
 	http.HandleFunc("/image", imageHandlers.post)
 	http.HandleFunc("/image/", imageHandlers.show)
