@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -47,7 +47,7 @@ func (h *imageHandlers) loadStore() {
 		}
 
 		// init hash
-		hash := sha256.New()
+		hash := md5.New()
 
 		// get hash from filename (svg) or calculation
 		fileHash := fileNameParts[0]
@@ -74,10 +74,12 @@ func (h *imageHandlers) get(w http.ResponseWriter, r *http.Request) {
 	images := make([]Image, len(h.store))
 	i := 0
 
+	h.Lock()
 	for _, image := range h.store {
 		images[i] = image
 		i++
 	}
+	h.Unlock()
 
 	jsonBytes, err := json.Marshal(images)
 	if err != nil {
@@ -108,8 +110,8 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(32 << 20)
 
 	// check if already done from transmitted hash
-	if r.Form.Has("sha256") {
-		if image, ok := h.store[r.Form.Get("sha256")]; ok {
+	if r.Form.Has("md5") {
+		if image, ok := h.store[r.Form.Get("md5")]; ok {
 			if image.Processed {
 				http.Redirect(w, r, "/image/"+image.Hash, http.StatusSeeOther)
 				return
@@ -137,9 +139,15 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	}
 	io.Copy(f, file)
 
+	newFile, err := os.Open("images/" + handler.Filename)
+	if err != nil {
+		panic(err.Error())
+	}
+	defer f.Close()
+
 	// add to store
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
+	hash := md5.New()
+	if _, err := io.Copy(hash, newFile); err != nil {
 		panic(err)
 	}
 	fileHash := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
@@ -160,9 +168,7 @@ func (h *imageHandlers) startProcessing(jobs <-chan int) {
 		h.Lock()
 		for index, image := range h.store {
 			if !image.Processed {
-				processFile(image)
-				image.Processed = true
-				h.store[index] = image
+				h.store[index] = processFile(image)
 			}
 		}
 		h.Unlock()
@@ -170,11 +176,11 @@ func (h *imageHandlers) startProcessing(jobs <-chan int) {
 
 }
 
-func processFile(storeImage Image) {
+func processFile(storeImage Image) Image {
 	// calculation arguments
 	image := "images/" + storeImage.Name
-	fileNameParts := strings.Split(storeImage.Name, ".")
-	output := "images/" + fileNameParts[0]
+	json := "images/tmp.json"
+	output := "images/" + storeImage.Hash
 	points := 300
 	shape := "triangles"
 	mutations := 2
@@ -187,17 +193,22 @@ func processFile(storeImage Image) {
 	threads := 0
 
 	// generate json
-	logic.RunAlgorithm(image, output, uint(points), shape,
+	logic.RunAlgorithm(image, json, uint(points), shape,
 		uint(mutations), float64(variation), uint(population), uint(cache),
 		uint(cutoff), uint(block), uint(reps), uint(threads))
 
 	// generate svg
-	input := "images/" + fileNameParts[0] + ".json"
-	logic.RenderSVG(input, output, image, shape)
+	logic.RenderSVG(json, output, image, shape)
 
 	// delete json + image
-	os.Remove(input)
+	os.Remove(json)
 	os.Remove(image)
+
+	// update image in store
+	storeImage.Processed = true
+	storeImage.Name = storeImage.Hash + ".svg"
+
+	return storeImage
 }
 
 func newImageHandlers() *imageHandlers {
