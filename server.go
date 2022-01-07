@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"triangula-api-server/logic"
 )
@@ -22,6 +23,7 @@ type Image struct {
 
 type imageHandlers struct {
 	store map[string]Image
+	sync.Mutex
 }
 
 func (h *imageHandlers) loadStore() {
@@ -142,29 +144,33 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	}
 	fileHash := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
 	img := Image{
-		Name:      f.Name(),
+		Name:      handler.Filename,
 		Hash:      fileHash,
 		Processed: false,
 	}
-	h.store[img.Hash] = img
 
-	fmt.Print(img)
+	h.Lock()
+	h.store[img.Hash] = img
+	h.Unlock()
 }
 
-func (h *imageHandlers) startProcessing() {
+func (h *imageHandlers) startProcessing(jobs <-chan int) {
 
-	i := 0
-	for _, image := range h.store {
-		if !image.Processed {
-			processFile(&image)
+	for {
+		h.Lock()
+		for index, image := range h.store {
+			if !image.Processed {
+				processFile(image)
+				image.Processed = true
+				h.store[index] = image
+			}
 		}
-		i++
+		h.Unlock()
 	}
 
 }
 
-func processFile(storeImage *Image) {
-
+func processFile(storeImage Image) {
 	// calculation arguments
 	image := "images/" + storeImage.Name
 	fileNameParts := strings.Split(storeImage.Name, ".")
@@ -177,7 +183,7 @@ func processFile(storeImage *Image) {
 	cache := 22
 	block := 5
 	cutoff := 1
-	reps := 500
+	reps := 100
 	threads := 0
 
 	// generate json
@@ -192,8 +198,6 @@ func processFile(storeImage *Image) {
 	// delete json + image
 	os.Remove(input)
 	os.Remove(image)
-
-	storeImage.Processed = true
 }
 
 func newImageHandlers() *imageHandlers {
@@ -205,7 +209,10 @@ func newImageHandlers() *imageHandlers {
 func main() {
 	imageHandlers := newImageHandlers()
 	imageHandlers.loadStore()
-	imageHandlers.startProcessing()
+
+	jobs := make(chan int, 2)
+	go imageHandlers.startProcessing(jobs)
+
 	http.HandleFunc("/", imageHandlers.get)
 	http.HandleFunc("/image", imageHandlers.post)
 	http.HandleFunc("/image/", imageHandlers.show)
