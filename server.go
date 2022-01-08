@@ -13,6 +13,8 @@ import (
 	"sync"
 
 	"triangula-api-server/logic"
+
+	"github.com/joho/godotenv"
 )
 
 type Settings struct {
@@ -358,6 +360,11 @@ func (h *imageHandlers) defaultRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		panic(err.Error())
+	}
+
 	imageHandlers := newImageHandlers()
 	imageHandlers.loadStore()
 
@@ -366,7 +373,7 @@ func main() {
 	go imageHandlers.startProcessing(imageHandlers.jobs)
 
 	http.HandleFunc("/", imageHandlers.defaultRoute)
-	err := http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":"+os.Getenv("PORT"), nil)
 	if err != nil {
 		panic(err)
 	}

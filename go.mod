@@ -13,6 +13,7 @@ require (
 	github.com/fogleman/delaunay v0.0.0-20180910191513-63f09b4c883d // indirect
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/joho/godotenv v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/panjf2000/ants/v2 v2.4.3 // indirect

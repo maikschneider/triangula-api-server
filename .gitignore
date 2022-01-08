@@ -2,3 +2,4 @@
 .vscode
 images/*
 storage.json
+.env
