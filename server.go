@@ -115,8 +115,11 @@ func (h *imageHandlers) loadStore() {
 	var savedData map[string]Image
 	json.Unmarshal(byteValue, &savedData)
 
-	fmt.Print((savedData))
-
+	for _, image := range savedData {
+		if _, ok := h.store[image.Hash]; ok {
+			h.store[image.Hash] = image
+		}
+	}
 }
 
 func (h *imageHandlers) saveStorage(jobs <-chan int) {
@@ -224,15 +227,21 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 		// create settings
 		settings := newSettings()
 		if r.Form.Has("settings") {
-			settings.mergeWithPost()
+			settings.shape = r.Form.Get("settings")
+		}
+
+		callbackUrl := ""
+		if r.Form.Has("callbackUrl") {
+			callbackUrl = r.Form.Get("callbackUrl")
 		}
 
 		// add to store
 		img := Image{
-			Name:      handler.Filename,
-			Hash:      fileHash,
-			Processed: false,
-			Settings:  *settings,
+			Name:        handler.Filename,
+			Hash:        fileHash,
+			Processed:   false,
+			Settings:    *settings,
+			CallbackUrl: callbackUrl,
 		}
 		h.Lock()
 		h.store[img.Hash] = img
