@@ -159,14 +159,28 @@ func (h *imageHandlers) get(w http.ResponseWriter, r *http.Request) {
 func (h *imageHandlers) show(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.String(), "/")
 
-	if len(parts) != 3 {
+	if len(parts) != 2 {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	fmt.Print(parts[2])
+	// search image
+	if _, ok := h.store[parts[1]]; !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
-	fmt.Print("done")
+	file, err := os.Open("images/" + h.store[parts[1]].Name)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+
+	byteValue, _ := ioutil.ReadAll(file)
+
+	w.Header().Add("content-type", "image/svg+xml")
+	w.Write(byteValue)
 }
 
 func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +191,7 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	if r.Form.Has("md5") {
 		if image, ok := h.store[r.Form.Get("md5")]; ok {
 			if image.Processed {
-				http.Redirect(w, r, "/image/"+image.Hash, http.StatusSeeOther)
+				http.Redirect(w, r, "/"+image.Hash, http.StatusSeeOther)
 				return
 			}
 			w.WriteHeader(http.StatusOK)
@@ -219,7 +233,7 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	// check for existence
 	if image, ok := h.store[fileHash]; ok {
 		if image.Processed {
-			http.Redirect(w, r, "/image/"+image.Hash, http.StatusSeeOther)
+			http.Redirect(w, r, "/"+image.Hash, http.StatusSeeOther)
 			return
 		}
 	} else {
@@ -318,6 +332,31 @@ func newImageHandlers() *imageHandlers {
 	}
 }
 
+func (h *imageHandlers) defaultRoute(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.String(), "/")
+	switch r.Method {
+	case "GET":
+		if len(parts) == 2 && parts[1] != "" {
+			h.show(w, r)
+			return
+		}
+		fmt.Print("fwfef")
+		h.get(w, r)
+		return
+	case "POST":
+		if len(parts) == 2 && parts[1] != "" {
+			h.show(w, r)
+			return
+		}
+		h.post(w, r)
+		return
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("method not allowed"))
+		return
+	}
+}
+
 func main() {
 	imageHandlers := newImageHandlers()
 	imageHandlers.loadStore()
@@ -326,9 +365,7 @@ func main() {
 
 	go imageHandlers.startProcessing(imageHandlers.jobs)
 
-	http.HandleFunc("/", imageHandlers.get)
-	http.HandleFunc("/image", imageHandlers.post)
-	http.HandleFunc("/image/", imageHandlers.show)
+	http.HandleFunc("/", imageHandlers.defaultRoute)
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		panic(err)
