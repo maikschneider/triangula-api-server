@@ -237,6 +237,7 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	// check for existence
 	if image, ok := h.store[fileHash]; ok {
 		if image.Processed {
+			os.Remove("images/" + handler.Filename)
 			http.Redirect(w, r, "/"+image.Hash, http.StatusSeeOther)
 			return
 		}
