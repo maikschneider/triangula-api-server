@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -285,11 +286,21 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 
 func (h *imageHandlers) startProcessing(jobs <-chan int) {
 
+	expiration, err := strconv.ParseInt(os.Getenv("EXPIRATION"), 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
 	for {
+		expirationDate := time.Now().Unix() - expiration
 		h.Lock()
 		for index, image := range h.store {
 			if !image.Processed {
 				h.store[index] = processFile(image)
+			}
+			if image.CreatedAt < expirationDate {
+				delete(h.store, index)
+				os.Remove("images/" + image.Name)
 			}
 		}
 		h.Unlock()
