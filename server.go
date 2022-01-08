@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -335,6 +334,14 @@ func newImageHandlers() *imageHandlers {
 }
 
 func (h *imageHandlers) defaultRoute(w http.ResponseWriter, r *http.Request) {
+
+	key := r.Header.Get("X-API-KEY")
+	if key != os.Getenv("API_KEY") {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("wrong api key"))
+		return
+	}
+
 	parts := strings.Split(r.URL.String(), "/")
 	switch r.Method {
 	case "GET":
@@ -342,7 +349,6 @@ func (h *imageHandlers) defaultRoute(w http.ResponseWriter, r *http.Request) {
 			h.show(w, r)
 			return
 		}
-		fmt.Print("fwfef")
 		h.get(w, r)
 		return
 	case "POST":
