@@ -15,15 +15,50 @@ import (
 	"triangula-api-server/logic"
 )
 
+type Settings struct {
+	points     uint
+	shape      string
+	mutations  uint
+	variation  float64
+	population uint
+	cache      uint
+	block      uint
+	cutoff     uint
+	reps       uint
+	threads    uint
+}
+
 type Image struct {
-	Name      string
-	Hash      string
-	Processed bool
+	Name        string
+	Hash        string
+	Processed   bool
+	CallbackUrl string
+	Settings    Settings
 }
 
 type imageHandlers struct {
 	store map[string]Image
 	sync.Mutex
+	jobs chan int
+}
+
+func newSettings() *Settings {
+	return &Settings{
+		points:     300,
+		shape:      "triangles",
+		mutations:  2,
+		variation:  0.3,
+		population: 400,
+		cache:      22,
+		block:      5,
+		cutoff:     1,
+		reps:       100,
+		threads:    0,
+	}
+}
+
+func (s *Settings) mergeWithPost() {
+
 }
 
 func (h *imageHandlers) loadStore() {
@@ -33,6 +68,7 @@ func (h *imageHandlers) loadStore() {
 		panic(err.Error())
 	}
 
+	// create storage
 	for _, file := range files {
 		// open file
 		f, err := os.Open("images/" + file.Name())
@@ -68,6 +104,31 @@ func (h *imageHandlers) loadStore() {
 		}
 		h.store[img.Hash] = img
 	}
+
+	// read json and add additional data
+	jsonFile, err := os.Open("storage.json")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer jsonFile.Close()
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	var savedData map[string]Image
+	json.Unmarshal(byteValue, &savedData)
+
+	fmt.Print((savedData))
+
+}
+
+func (h *imageHandlers) saveStorage(jobs <-chan int) {
+
+	h.Lock()
+	jsonBytes, err := json.Marshal(h.store)
+	if err != nil {
+		panic(err.Error())
+	}
+	h.Unlock()
+
+	_ = ioutil.WriteFile("storage.json", jsonBytes, 0644)
 }
 
 func (h *imageHandlers) get(w http.ResponseWriter, r *http.Request) {
@@ -145,21 +206,52 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 
-	// add to store
+	// calc hash
 	hash := md5.New()
 	if _, err := io.Copy(hash, newFile); err != nil {
 		panic(err)
 	}
 	fileHash := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
-	img := Image{
-		Name:      handler.Filename,
-		Hash:      fileHash,
-		Processed: false,
+
+	// check for existence
+	if image, ok := h.store[fileHash]; ok {
+		if image.Processed {
+			http.Redirect(w, r, "/image/"+image.Hash, http.StatusSeeOther)
+			return
+		}
+	} else {
+
+		// create settings
+		settings := newSettings()
+		if r.Form.Has("settings") {
+			settings.mergeWithPost()
+		}
+
+		// add to store
+		img := Image{
+			Name:      handler.Filename,
+			Hash:      fileHash,
+			Processed: false,
+			Settings:  *settings,
+		}
+		h.Lock()
+		h.store[img.Hash] = img
+		h.Unlock()
+
+		// save store
+		go h.saveStorage(h.jobs)
 	}
 
-	h.Lock()
-	h.store[img.Hash] = img
-	h.Unlock()
+	resp := make(map[string]string)
+	resp["message"] = "File queued"
+	resp["hash"] = fileHash
+	jsonResp, err := json.Marshal(resp)
+	if err != nil {
+		panic(err.Error())
+	}
+	w.Header().Add("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonResp)
 }
 
 func (h *imageHandlers) startProcessing(jobs <-chan int) {
@@ -221,8 +313,9 @@ func main() {
 	imageHandlers := newImageHandlers()
 	imageHandlers.loadStore()
 
-	jobs := make(chan int, 2)
-	go imageHandlers.startProcessing(jobs)
+	go imageHandlers.saveStorage(imageHandlers.jobs)
+
+	go imageHandlers.startProcessing(imageHandlers.jobs)
 
 	http.HandleFunc("/", imageHandlers.get)
 	http.HandleFunc("/image", imageHandlers.post)
