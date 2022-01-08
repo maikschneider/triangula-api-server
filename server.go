@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"triangula-api-server/logic"
 
@@ -34,6 +35,7 @@ type Image struct {
 	Hash        string
 	Processed   bool
 	CallbackUrl string
+	CreatedAt   int64
 	Settings    Settings
 }
 
@@ -250,6 +252,8 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 			callbackUrl = r.Form.Get("callbackUrl")
 		}
 
+		now := time.Now()
+
 		// add to store
 		img := Image{
 			Name:        handler.Filename,
@@ -257,6 +261,7 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 			Processed:   false,
 			Settings:    *settings,
 			CallbackUrl: callbackUrl,
+			CreatedAt:   now.Unix(),
 		}
 		h.Lock()
 		h.store[img.Hash] = img
