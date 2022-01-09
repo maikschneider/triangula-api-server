@@ -1,6 +1,6 @@
 # Triangula API server
 
-Minimalistic API server that calculates and serves artistic images using triangula
+Minimalistic API server that calculates and serves artistic images using [triangula](https://github.com/RH12503/triangula)
 
 ## Install
 
@@ -8,6 +8,12 @@ Download repository:
 
 ```
 git clone github.com/maikschneider/triangula-api-server
+```
+
+Install dependencies:
+
+```
+go install
 ```
 
 Create `.env` file:
