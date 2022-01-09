@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -341,7 +343,36 @@ func processFile(storeImage Image) Image {
 	storeImage.Processed = true
 	storeImage.Name = storeImage.Hash + ".svg"
 
+	// notify
+	NotifyCallback(storeImage)
+
 	return storeImage
+}
+
+func NotifyCallback(image Image) {
+
+	if !IsUrl(image.CallbackUrl) {
+		return
+	}
+
+	values := map[string]string{"hash": image.Hash, "status": "processing finished"}
+	json_data, err := json.Marshal(values)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	_, err = http.Post(image.CallbackUrl, "application/json",
+		bytes.NewBuffer(json_data))
+
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
+func IsUrl(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
 func newImageHandlers() *imageHandlers {
