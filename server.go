@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -362,7 +363,12 @@ func NotifyCallback(image Image) {
 		panic(err.Error())
 	}
 
-	_, err = http.Post(image.CallbackUrl, "application/json",
+	transCfg := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: transCfg}
+
+	_, err = client.Post(image.CallbackUrl, "application/json",
 		bytes.NewBuffer(json_data))
 
 	if err != nil {
