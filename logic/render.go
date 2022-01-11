@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	"github.com/RH12503/Triangula-CLI/polygons"
@@ -70,5 +71,19 @@ func RenderSVG(inputFile, outputFile, imageFile, shape string) {
 		return
 	}
 
+	AddViewBoxAttr(filename)
+
 	color.Green("Successfully generated SVG at %s", filename)
+}
+
+func AddViewBoxAttr(filename string) {
+
+	svg, err := ioutil.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	re := regexp.MustCompile(`width="(\d+)" height="(\d+)"`)
+	newSvg := re.ReplaceAll(svg, []byte("width=\"$1\" height=\"$2\" viewBox=\"0 0 $1 $2\" "))
+	ioutil.WriteFile(filename, newSvg, 0)
 }
