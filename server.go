@@ -308,6 +308,8 @@ func (h *imageHandlers) startProcessing(jobs <-chan int) {
 			}
 		}
 		h.Unlock()
+
+		time.Sleep(1000 * time.Millisecond)
 	}
 
 }
