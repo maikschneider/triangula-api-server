@@ -60,7 +60,7 @@ func newSettings() *Settings {
 		block:      5,
 		cutoff:     1,
 		reps:       100,
-		threads:    0,
+		threads:    1,
 	}
 }
 
