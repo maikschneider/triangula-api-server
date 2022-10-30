@@ -35,18 +35,18 @@ type Settings struct {
 }
 
 type Image struct {
-	Name        string
-	Hash        string
-	Processed   bool
-	CallbackUrl string
-	CreatedAt   int64
-	Settings    Settings
+	Name         string
+	Hash         string
+	Processed    bool
+	IsProcessing bool
+	CallbackUrl  string
+	CreatedAt    int64
+	Settings     Settings
 }
 
 type imageHandlers struct {
 	store map[string]Image
 	sync.Mutex
-	jobs chan int
 }
 
 func newSettings() *Settings {
@@ -105,9 +105,10 @@ func (h *imageHandlers) loadStore() {
 
 		// construct single image response
 		img := Image{
-			Name:      file.Name(),
-			Hash:      fileHash,
-			Processed: fileIsProcessed,
+			Name:         file.Name(),
+			Hash:         fileHash,
+			Processed:    fileIsProcessed,
+			IsProcessing: false,
 		}
 		h.store[img.Hash] = img
 	}
@@ -129,7 +130,7 @@ func (h *imageHandlers) loadStore() {
 	}
 }
 
-func (h *imageHandlers) saveStorage(jobs <-chan int) {
+func (h *imageHandlers) saveStorage() {
 
 	h.Lock()
 	jsonBytes, err := json.Marshal(h.store)
@@ -261,19 +262,19 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 
 		// add to store
 		img := Image{
-			Name:        handler.Filename,
-			Hash:        fileHash,
-			Processed:   false,
-			Settings:    *settings,
-			CallbackUrl: callbackUrl,
-			CreatedAt:   now.Unix(),
+			Name:         handler.Filename,
+			Hash:         fileHash,
+			Processed:    false,
+			IsProcessing: false,
+			Settings:     *settings,
+			CallbackUrl:  callbackUrl,
+			CreatedAt:    now.Unix(),
 		}
 		h.Lock()
 		h.store[img.Hash] = img
 		h.Unlock()
 
-		// save store
-		go h.saveStorage(h.jobs)
+		go h.saveStorage()
 	}
 
 	resp := make(map[string]string)
@@ -288,7 +289,7 @@ func (h *imageHandlers) post(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonResp)
 }
 
-func (h *imageHandlers) startProcessing(jobs <-chan int) {
+func (h *imageHandlers) startProcessing() {
 
 	expiration, err := strconv.ParseInt(os.Getenv("EXPIRATION"), 10, 64)
 	if err != nil {
@@ -298,23 +299,30 @@ func (h *imageHandlers) startProcessing(jobs <-chan int) {
 	for {
 		expirationDate := time.Now().Unix() - expiration
 		h.Lock()
-		for index, image := range h.store {
-			if !image.Processed {
-				h.store[index] = processFile(image)
+		for index := range h.store {
+			if !h.store[index].Processed && !h.store[index].IsProcessing {
+				image := h.store[index]
+				image.IsProcessing = true
+				h.store[index] = image
+				go h.processFile(index)
 			}
-			if image.CreatedAt < expirationDate {
+			if h.store[index].CreatedAt < expirationDate {
 				delete(h.store, index)
-				os.Remove("images/" + image.Name)
+				os.Remove("images/" + h.store[index].Name)
 			}
 		}
 		h.Unlock()
 
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(2000 * time.Millisecond)
 	}
 
 }
 
-func processFile(storeImage Image) Image {
+func (h *imageHandlers) processFile(index string) {
+
+	h.Lock()
+	storeImage := h.store[index]
+
 	// calculation arguments
 	image := "images/" + storeImage.Name
 	json := "images/tmp.json"
@@ -345,11 +353,16 @@ func processFile(storeImage Image) Image {
 	// update image in store
 	storeImage.Processed = true
 	storeImage.Name = storeImage.Hash + ".svg"
+	storeImage.IsProcessing = false
+
+	// write image back to storage
+	h.store[index] = storeImage
+	h.Unlock()
+
+	go h.saveStorage()
 
 	// notify
 	NotifyCallback(storeImage)
-
-	return storeImage
 }
 
 func NotifyCallback(image Image) {
@@ -429,10 +442,9 @@ func main() {
 
 	imageHandlers := newImageHandlers()
 	imageHandlers.loadStore()
+	imageHandlers.saveStorage()
 
-	go imageHandlers.saveStorage(imageHandlers.jobs)
-
-	go imageHandlers.startProcessing(imageHandlers.jobs)
+	go imageHandlers.startProcessing()
 
 	http.HandleFunc("/", imageHandlers.defaultRoute)
 	err = http.ListenAndServe(":"+os.Getenv("PORT"), nil)
