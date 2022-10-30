@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triangular API Server</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="">
+        <div id="example">
+            <img src="50.svg" data-step="7" alt="Example with 50 points" />
+            <img src="100.svg" data-step="6" alt="Example with 100 points" />
+            <img src="200.svg" data-step="5" alt="Example with 200 points" />
+            <img src="400.svg" data-step="4" alt="Example with 400 points" />
+            <img src="800.svg" data-step="3" alt="Example with 800 points" />
+            <img src="1600.svg"  data-step="2" alt="Example with 1600 points" />
+            <img src="3200.svg"  data-step="1" alt="Example with 3200 points" />
+            <img src="statue.png"  data-step="0" alt="Original pixel image" class="active" />
+        </div>
+        <div id="info">
+            <div data-step="7" class="info step7"><span class="badge">SVG</span> 50 points, 7KB</div>
+            <div data-step="6" class="info step6"><span class="badge">SVG</span> 100 points, 14KB</div>
+            <div data-step="5" class="info step5"><span class="badge">SVG</span> 200 points, 29KB</div>
+            <div data-step="4" class="info step4"><span class="badge">SVG</span> 400 points, 57KB</div>
+            <div data-step="3" class="info step3"><span class="badge">SVG</span> 800 points, 113KB</div>
+            <div data-step="2" class="info step2"><span class="badge">SVG</span> 1600 points, 225KB</div>
+            <div data-step="1" class="info step1"><span class="badge">SVG</span> 3200 points, 435KB</div>
+            <div data-step="0" class="info step0 active"><span class="badge badge--green">PNG</span> 1000 x 1333, 545KB</div>
+        </div>
+        <div id="slider">
+            <div class="progress">
+                <span data-step="0" class="indicator" style="--step:0;"></span>
+                <span data-step="1" class="indicator" style="--step:1;"></span>
+                <span data-step="2" class="indicator" style="--step:2;"></span>
+                <span data-step="3" class="indicator" style="--step:3;"></span>
+                <span data-step="4" class="indicator" style="--step:4;"></span>
+                <span data-step="5" class="indicator" style="--step:5;"></span>
+                <span data-step="6" class="indicator" style="--step:6;"></span>
+                <span data-step="7" class="indicator" style="--step:7;"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </aside>
+    <main>
+        <h1>Triangular API Service</h1>
+        <p>Lorem ipsum dolor sit amet consectetur, adipisicing elit. Repellendus, quod vitae quas eos laborum sunt, eveniet libero maiores eaque facere incidunt? Accusamus sunt perferendis provident quis eos, ipsa non. Ipsa.</p>
+        <form>
+            <fieldset>
+                <label>Username</label>
+                <input name="username" type="text" placeholder="mail@example.com" />
+                <label>Password</label>
+                <input name="password" type="password" placeholder="**********" />
+                <input type="submit" value="Login" />
+            </fieldset>
+        </form>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>

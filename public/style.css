@@ -1,0 +1,101 @@
+:root {
+  --background-body: #e3e4e7;
+  --focus: #bbaa83;
+}
+
+body {
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  max-width: 1200px;
+}
+
+#example {
+  display: grid;
+}
+
+#example img {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  opacity: 0;
+  
+}
+
+#example img.active {
+  opacity: 1;
+  z-index: 2;
+}
+
+.progress {
+    height: 10px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 5px;
+    position: relative;
+    width: 100%;
+    z-index: 3;
+}
+
+.progress span.bar {
+    height: 10px;
+    width: 10%;
+    position: absolute;
+    border-radius: 5px;
+    background: #bbaa83;
+    z-index: 4;
+    width: calc((var(--step, 0) * 14.05%) + 9px);
+    transition: width 1.2s linear;
+}
+
+.progress span.indicator {
+    width: 10px;
+    height: 10px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: inline-block;
+    background: rgba(0,0,0,0.1);
+    border-radius: 5px;
+    z-index: 5;
+    left: calc(var(--step) * 14.05%);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.progress span.indicator:hover {
+    background: rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 5px rgba(0,0,0,0.1);
+}
+
+#info {
+    text-align: center;
+    margin-bottom: 2rem;
+    margin-top: -4rem;
+    position: relative;
+    z-index: 4;
+}
+
+#info div:not(.active) {
+    display: none;
+}
+
+.badge {
+    display: inline-block;
+    background: #9f8c61;
+    color: #FFF;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-right: 5px;
+}
+
+.badge--green {
+    background: #3e915c;
+}
+
+.info {
+    font-weight: bold;
+}
+
+.animation-disabled span.bar, .animation-disabled #example img {
+    transition: none !important;
+}
